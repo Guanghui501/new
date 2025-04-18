@@ -19,22 +19,38 @@
         th, td {
             padding: 8px;
             text-align: left;
+            cursor: pointer;
+        }
+        /* Pagination */
+        .pagination {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .pagination button {
+            padding: 5px 10px;
+            margin: 0 5px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <h1>JSON Database Viewer</h1>
+
+    <!-- Search Box -->
+    <input type="text" id="search" placeholder="Search..." onkeyup="filterTable()">
+
+    <!-- Table -->
     <table id="data-table">
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Formula</th>
-                <th>Energy</th>
+                <th id="id-header" onclick="sortTable('id')">ID</th>
+                <th id="formula-header" onclick="sortTable('formula')">Formula</th>
+                <th id="energy-header" onclick="sortTable('energy')">Energy</th>
                 <th>Mass Density</th>
                 <th>N Concentration</th>
-				<th>E_d</th>
-				<th>V_d</th>
-				<th>P_d</th>
+                <th>E_d</th>
+                <th>V_d</th>
+                <th>P_d</th>
             </tr>
         </thead>
         <tbody>
@@ -42,31 +58,99 @@
         </tbody>
     </table>
 
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        <button id="prev" onclick="changePage('prev')">Previous</button>
+        <button id="next" onclick="changePage('next')">Next</button>
+        <span id="page-number">Page 1</span>
+    </div>
+
     <script>
+        let data = {};
+        let currentPage = 1;
+        let rowsPerPage = 5;  // Number of rows per page
+
         // Fetch the JSON data (assuming the JSON file is in the same directory)
         fetch('db.json')
             .then(response => response.json())
-            .then(data => {
-                const tableBody = document.querySelector('#data-table tbody');
-                for (const entryId in data) {
-                    const entry = data[entryId];
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${entryId}</td>
-                        <td>${entry.formula}</td>
-                        <td>${entry.energy}</td>
-                        <td>${entry.mass_density || 'N/A'}</td>
-                        <td>${entry.N_concentration || 'N/A'}</td>
-						<td>${entry.E_d || 'N/A'}</td>
-						<td>${entry.V_d || 'N/A'}</td>
-						<td>${entry.P_d || 'N/A'}</td>
-                    `;
-                    tableBody.appendChild(row);
-                }
+            .then(jsonData => {
+                data = jsonData;
+                renderTable();
             })
             .catch(error => {
                 console.error('Error loading JSON data:', error);
             });
+
+        // Render table with current page
+        function renderTable() {
+            const tableBody = document.querySelector('#data-table tbody');
+            tableBody.innerHTML = '';
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = currentPage * rowsPerPage;
+            const paginatedData = Object.entries(data).slice(startIndex, endIndex);
+
+            paginatedData.forEach(([entryId, entry]) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${entryId}</td>
+                    <td>${entry.formula}</td>
+                    <td>${entry.energy}</td>
+                    <td>${entry.mass_density || 'N/A'}</td>
+                    <td>${entry.N_concentration || 'N/A'}</td>
+                    <td>${entry.E_d || 'N/A'}</td>
+                    <td>${entry.V_d || 'N/A'}</td>
+                    <td>${entry.P_d || 'N/A'}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Update page number
+            document.getElementById('page-number').innerText = `Page ${currentPage}`;
+            document.getElementById('prev').disabled = currentPage === 1;
+            document.getElementById('next').disabled = currentPage * rowsPerPage >= Object.keys(data).length;
+        }
+
+        // Change page for pagination
+        function changePage(direction) {
+            if (direction === 'prev' && currentPage > 1) {
+                currentPage--;
+            } else if (direction === 'next' && currentPage * rowsPerPage < Object.keys(data).length) {
+                currentPage++;
+            }
+            renderTable();
+        }
+
+        // Filter table based on search input
+        function filterTable() {
+            const searchValue = document.getElementById('search').value.toLowerCase();
+            const filteredData = {};
+
+            for (const [entryId, entry] of Object.entries(data)) {
+                if (entry.formula.toLowerCase().includes(searchValue) || entry.energy.toString().includes(searchValue)) {
+                    filteredData[entryId] = entry;
+                }
+            }
+
+            data = filteredData;  // Update data with filtered results
+            currentPage = 1;  // Reset to first page
+            renderTable();
+        }
+
+        // Sort table by column
+        function sortTable(column) {
+            const sortedData = Object.entries(data).sort((a, b) => {
+                if (column === 'id') {
+                    return a[0] - b[0];  // Sort by ID (numerically)
+                } else if (column === 'formula') {
+                    return a[1].formula.localeCompare(b[1].formula);  // Sort by formula (alphabetically)
+                } else if (column === 'energy') {
+                    return a[1].energy - b[1].energy;  // Sort by energy (numerically)
+                }
+            });
+
+            data = Object.fromEntries(sortedData);  // Rebuild the data object after sorting
+            renderTable();
+        }
     </script>
 </body>
 </html>
